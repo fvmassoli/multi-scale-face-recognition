@@ -1,0 +1,17 @@
+*.pyc
+*.txt
+*.npy
+*.csv
+.idea/
+venv/
+
+recognition_logs/*
+training_logs/*
+norecognition_logs/*
+
+core/models_weights/
+core_old/
+face/
+core/models/models_weights/
+notebooks/output/
+*.mp4

@@ -1,0 +1,270 @@
+from __future__ import print_function
+
+import os
+import cv2
+import sys
+import time
+import numpy as np
+import pandas as pd
+
+from run.utils import create_log_file
+from core.core_manager import CoreManager
+
+CURRENT_TIME = time.strftime("%Y_%m_%d_%H_%M_%S")
+
+
+class RunManager(object):
+    def __init__(self,
+                 id_path=None,
+                 features_path=None,
+                 detector_path='./detector_models',
+                 extractor_path='./caffe_models',
+                 extractor_model='resnet50_ft',
+                 layer=None,
+                 use_gpu=False,
+                 detection_confidence=0.4,
+                 k_neighbours=10,
+                 activate_training_mode=False,
+                 training_mode=0,
+                 freeze=True,
+                 video_url=None,
+                 activate_webcam=False,
+                 webcam=0,
+                 training_image_folder=None,
+                 show_video=False,
+                 verbose_level=-1):
+        self.core_manager = CoreManager(id_path=id_path,
+                                        features_path=features_path,
+                                        detector_path=detector_path,
+                                        extractor_path=extractor_path,
+                                        extractor_model=extractor_model,
+                                        layer=layer,
+                                        use_gpu=use_gpu,
+                                        training=activate_training_mode,
+                                        detection_confidence=detection_confidence,
+                                        k_neighbours=k_neighbours,
+                                        verbose_level=verbose_level)
+        self.freeze = freeze
+        self.webcam = webcam
+        self.id_path = id_path
+        self.video_url = video_url
+        self.show_video = show_video
+        self.verbose_level = verbose_level
+        self.features_path = features_path
+        self.training_mode = training_mode
+        self.activate_webcam = activate_webcam,
+        self.training_image_folder = training_image_folder
+        self.activate_training_mode = activate_training_mode
+        self.log_file, self.img_dir = create_log_file(current_time=CURRENT_TIME, train=activate_training_mode)
+
+    def recognize(self):
+        if self.activate_webcam[0]:
+            stream = cv2.VideoCapture(self.webcam)
+        else:
+            stream = cv2.VideoCapture(self.video_url)
+            if not stream.isOpened():
+                raise IOError('Cannot open the streaming at:', self.video_url)
+
+        ret = True
+        while ret:
+
+            start = time.time()
+            ret, img = stream.read()
+            end = time.time()
+            capture_time = end - start
+
+            if self.verbose_level > 0:
+                print('\n\tCapture:', capture_time, 's')
+
+            descriptors, bb, matches = self.core_manager.recognize(img, capture_time)
+
+            if bb is not None and img is not None:
+                for i in range(len(bb)):
+                    face = img[bb[i][1]:bb[i][3], bb[i][0]:bb[i][2]]
+                    img_id = time.strftime("%Y_%m_%d_%H_%M_%S") + '.png'
+                    cv2.imwrite(os.path.join(self.img_dir, img_id), face)
+
+                    cv2.rectangle(img, bb[i][:2], bb[i][2:4], (0, 255, 0), 2)
+                for match in matches:
+                    cv2.putText(img,
+                                match,
+                                (50, 50 * (i + 1)),  # x, y of top left corner of text
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.7,
+                                (0, 255, 0),  # BGR
+                                2)
+            if self.show_video:
+                cv2.imshow('frame', img)
+                if cv2.waitKey(1) & 0xFF == ord('q'): break
+
+        stream.release()
+        cv2.destroyAllWindows()
+
+
+    def train(self):
+
+        empty_dataframe = True
+        identities = None
+        try:
+            identities = pd.read_csv(self.id_path, header=None)
+            identities.columns = ['identities']
+            empty_dataframe = False
+        except:
+            print('Empty identity file')
+
+        if self.training_mode == 2:
+            self._train_from_image_folder(empty_dataframe, identities)
+        else:
+            features = self._train_from_video()
+
+            if features is None:
+                raise Exception('Something during training went wrong! If training from image folders check thath all'
+                                'identities have the same number of valid images (i.e. images with a detected face)')
+
+            if sys.version_info[0] >= 3:
+                person_id = input("Insert person id: ")
+            else:
+                person_id = raw_input("Insert person id: ")
+
+            features = np.concatenate(features)
+            print("features shape: ", features.shape)
+
+            if not empty_dataframe and len(identities[identities['identities'] == person_id]) != 0:
+                print('Identity already present into the database')
+                if sys.version_info[0] >= 3:
+                    choice = input("Do you want to override it?(y/[n]) ")
+                else:
+                    choice = raw_input("Do you want to override it?(y/[n]) ")
+                if 'y' in choice:
+                    idx = int(identities[identities['identities'] == person_id].index[0])
+                    auth_descriptors = np.loadtxt(self.features_path, dtype=np.float32)
+                    start = idx * 10
+                    auth_descriptors[start:start + 10] = features
+                    np.savetxt(self.features_path, auth_descriptors, delimiter=' ')
+                else:
+                    pass
+            else:
+                with open(self.id_path, 'a') as f:
+                    f.write(person_id)
+                    f.write("\n")
+                with open(self.features_path, 'a') as f:
+                    np.savetxt(f, features, delimiter=' ')
+
+
+    def _train_from_image_folder(self, empty_dataframe, identities):
+
+        if not os.path.isdir(self.training_image_folder):
+            raise IOError('Root folder not found')
+        subfolders = os.listdir(self.training_image_folder)
+        if len(subfolders) == 0:
+            raise IOError('Root folder is empty')
+        images_dict = {k: os.listdir(os.path.join(self.training_image_folder, k)) for k in subfolders}
+
+        for k in images_dict:
+            if len(images_dict[k]) < 10:
+                raise IOError('Required at least 10 images for each identity')
+
+        for k in images_dict:
+            n = 0
+            features = []
+            for img in images_dict[k]:
+
+                print('')
+                img = cv2.imread(os.path.join(self.training_image_folder, k, img))
+
+                if self.verbose_level > 1:
+                    print('\tInput image shape: {}'.format(img.shape))
+
+                bb, increment = self.core_manager.recognize_for_training(img, features)
+                n += increment
+
+                if bb is not None and len(bb) != 0:
+                    for i in range(len(bb)):
+                        face = img[bb[i][1]:bb[i][3], bb[i][0]:bb[i][2]]
+                        img_id = time.strftime("%Y_%m_%d_%H_%M_%S") + '.png'
+                        cv2.imwrite(os.path.join(self.img_dir, img_id), face)
+                        cv2.rectangle(img, bb[i][:2], bb[i][2:4], (0, 255, 0), 2)
+                if n == 10: break
+                if self.show_video:
+                    cv2.imshow('frame', img)
+                    if cv2.waitKey(1) & 0xFF == ord('q'): break
+
+            if n != 10:
+                print("Not enough images for identity: {}".format(k))
+            else:
+                features = np.concatenate(features)
+                if sys.version_info[0] >= 3:
+                    person_id = input("Insert person id: ")
+                else:
+                    person_id = raw_input("Insert person id: ")
+                if not empty_dataframe and len(identities[identities['identities'] == person_id]) != 0:
+                    print('Identity already present into the database')
+                    if sys.version_info[0] >= 3:
+                        choice = input("Do you want to override it?(y/[n]) ")
+                    else:
+                        choice = raw_input("Do you want to override it?(y/[n]) ")
+                    if 'y' in choice:
+                        idx = int(identities[identities['identities'] == person_id].index[0])
+                        auth_descriptors = np.loadtxt(self.features_path, dtype=np.float32)
+                        start = idx * 10
+                        auth_descriptors[start:start + 10] = features
+                        np.savetxt(self.features_path, auth_descriptors, delimiter=' ')
+                    else:
+                        pass
+                else:
+                    with open(self.id_path, 'a') as f:
+                        f.write(person_id)
+                        f.write("\n")
+                    with open(self.features_path, 'a') as f:
+                        np.savetxt(f, features, delimiter=' ')
+        cv2.destroyAllWindows()
+
+
+    def _train_from_video(self):
+
+        if self.training_mode == 0:
+            stream = cv2.VideoCapture(self.video_url)
+            if not stream.isOpened():
+                raise IOError('Cannot open the streaming at:', self.video_url)
+        elif self.training_mode == 1:
+            stream = cv2.VideoCapture(self.webcam)
+        else:
+            stream = None
+
+        features = []
+        n = 0
+        ret = True
+        while ret and n < 10:
+
+            start = time.time()
+            ret, img = stream.read()
+            end = time.time()
+
+            capture_time = end - start
+            if self.verbose_level > 0:
+                print('\n\tCapture:', capture_time, 's')
+
+            if self.verbose_level > 1:
+                print('\tInput image shape: {}'.format(img.shape))
+
+            bb, increment = self.core_manager.recognize_for_training(img, features, capture_time)
+            n += increment
+
+            if bb is not None and len(bb) != 0:
+                for i in range(len(bb)):
+                    face = img[bb[i][1]:bb[i][3], bb[i][0]:bb[i][2]]
+                    img_id = time.strftime("%Y_%m_%d_%H_%M_%S") + '.png'
+                    cv2.imwrite(os.path.join(self.img_dir, img_id), face)
+
+                    cv2.rectangle(img, bb[i][:2], bb[i][2:4], (0, 255, 0), 2)
+
+            if self.show_video:
+                cv2.imshow('frame', img)
+                if cv2.waitKey(1) & 0xFF == ord('q'): break
+
+            # Freeze 1 sec in order to get different face orientation
+            if self.freeze:
+                time.sleep(1)
+        stream.release()
+        cv2.destroyAllWindows()
+        return features
