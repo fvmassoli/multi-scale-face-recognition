@@ -6,6 +6,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Deep Face Verifier',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-tc', '--trainClassifier', action='store_true', help='Train classifier (default: False)')
+    parser.add_argument('-clfp', '--classifierPath', help='Path to classifier')
     parser.add_argument('-detp', '--detectorPath', default='',
                         help='Path to detector_models directory (default: ./)')
     parser.add_argument('-extp', '--extractorPath', default='',

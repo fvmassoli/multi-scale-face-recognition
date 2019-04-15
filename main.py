@@ -17,11 +17,11 @@ def main(args):
                 labels_file=args.labelsFilePath,
                 names_file=args.namesFilePath)
 
-    classifier_manager = ClassifierManager(features_file=args.,
-                                           labels_file=args.,
-                                           train_classifier=args.,
-                                           classifier_path=args.,
-                                           verbose_level=args.)
+    classifier_manager = ClassifierManager(features_file=args.featuresFilePath,
+                                           labels_file=args.labelsFilePath,
+                                           train_classifier=args.trainClassifier,
+                                           classifier_path=args.classifierPath,
+                                           verbose_level=args.verboseLevel)
 
     models_manager = ModelsManager(detector_path=args.detectorPath,
                                    extractor_path=args.extractorPath,
