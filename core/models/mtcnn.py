@@ -19,17 +19,18 @@ class MTCNN(object):
         self._load_model(caffe_model_path=caffe_model_path)
 
     def _load_model(self, caffe_model_path):
-        caffe_model_path = 'core_old/'+caffe_model_path
         pnet_proto = caffe_model_path + "/det1.prototxt"
         pnet_model = caffe_model_path + "/det1.caffemodel"
         rnet_proto = caffe_model_path + "/det2.prototxt"
         rnet_model = caffe_model_path + "/det2.caffemodel"
         onet_proto = caffe_model_path + "/det3.prototxt"
         onet_model = caffe_model_path + "/det3.caffemodel"
-        if not os.path.exists(pnet_proto) or not os.path.exists(pnet_model) \
-                or not os.path.exists(rnet_proto) or not os.path.exists(rnet_model) \
-                or not os.path.exists(onet_proto) or not os.path.exists(onet_model):
-            raise Exception('One or more detector_models file not found in:', caffe_model_path)
+        if not os.path.exists(pnet_proto) or not os.path.exists(pnet_model):
+            raise Exception('PNet not found in:', pnet_proto, pnet_model)
+        if not os.path.exists(rnet_proto) or not os.path.exists(rnet_model):
+            raise Exception('RNet not found in:', rnet_proto, rnet_model)
+        if not os.path.exists(onet_proto) or not os.path.exists(onet_model):
+            raise Exception('ONet not found in:', onet_proto, onet_model)
         # if self.gpu_flag:
         #     caffe.set_mode_gpu()
         # self.PNet = caffe.Net(pnet_proto, pnet_model, caffe.TEST)
@@ -228,8 +229,9 @@ class MTCNN(object):
 
             im_data = np.swapaxes(im_data, 0, 2)
             im_data = np.array([im_data], dtype=np.float)
-            self.PNet.blobs['data'].reshape(1, 3, ws, hs)
+            # self.PNet.blobs['data'].reshape(1, 3, ws, hs)
             # self.PNet.blobs['data'].data[...] = im_data
+            print(im_data.shape, ws, hs)
             blob = cv2.dnn.blobFromImage(im_data)
             self.PNet.setInput(blob)
             out = self.PNet.forward()

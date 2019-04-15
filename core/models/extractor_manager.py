@@ -17,10 +17,11 @@ class ExtractorManager(object):
 
     def _init_model(self, path):
         start = time.time()
-        model = torch.load('senet50_ft_pytorch.pth')
-        ckp = torch.load(path, map_location='cpu')
-        for n, p in model.named_parameters():
-            p.data = ckp['model_state_dict'][n]
+        model = torch.load(path)
+        # model = torch.load('senet50_ft_pytorch.pth')
+        # ckp = torch.load(path, map_location='cpu')
+        # for n, p in model.named_parameters():
+        #     p.data = ckp['model_state_dict'][n]
         model.eval()
         end = time.time()
         print("*" * 60)
@@ -43,8 +44,8 @@ class ExtractorManager(object):
 
     def _init_transforms(self):
         return t.Compose([
-            t.Resize(),
-            t.CenterCrop(),
+            t.Resize(256),
+            t.CenterCrop(224),
             t.ToTensor(),
             t.Lambda(lambda x: self._subtract_mean(x))
         ])

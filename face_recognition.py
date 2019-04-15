@@ -10,8 +10,6 @@ import torch
 
 def main(args):
 
-    use_gpu = torch.cuda.is_available() and args.useGPU
-
     check_files(training_mode=args.trainingMode,
                 features_file=args.featuresFilePath,
                 labels_file=args.labelsFilePath,
@@ -25,7 +23,7 @@ def main(args):
 
     models_manager = ModelsManager(detector_path=args.detectorPath,
                                    extractor_path=args.extractorPath,
-                                   use_gpu=use_gpu,
+                                   use_gpu=torch.cuda.is_available() and args.useGPU,
                                    training_mode=args.trainingMode,
                                    verbose_level=args.verboseLevel)
 

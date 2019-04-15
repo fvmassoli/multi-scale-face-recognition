@@ -9,6 +9,7 @@ recognition_logs/*
 training_logs/*
 norecognition_logs/*
 
+MainModel.py
 core/models_weights/
 core_old/
 face/
@@ -16,3 +17,4 @@ core/models/models_weights/
 notebooks/output/
 notebooks/.ipynb_checkpoints/
 *.mp4
+data/

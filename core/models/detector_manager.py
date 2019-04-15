@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import time
-from .mtcnn import MTCNN
+from mtcnn import MTCNN
 
 
 class DetectorManager(object):

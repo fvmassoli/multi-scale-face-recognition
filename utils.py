@@ -5,29 +5,40 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser(description='Deep Face Verifier',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-tc', '--trainClassifier', action='store_true', help='Train classifier (default: False)')
-    parser.add_argument('-clfp', '--classifierPath', help='Path to classifier')
-    parser.add_argument('-detp', '--detectorPath', default='',
-                        help='Path to detector_models directory (default: ./)')
-    parser.add_argument('-extp', '--extractorPath', default='',
-                        help='Path to extractor directory (default: ./)')
-    parser.add_argument('-gpu', '--useGPU', action='store_true', help='Use GPU (default: False)')
-    parser.add_argument('-t', '--trainingMode', action='store_true', help='Training mode (default: False)')
+    parser.add_argument('-detp', '--detectorPath', default='./core/models_weights/detector_models',
+                        help='Path to detector_models directory (default: ./core/models_weights/detector_model)')
+    parser.add_argument('-extp', '--extractorPath', default='./core/models_weights/extractor_model/senet50_ft_pytorch.pth',
+                        help='Path to extractor directory '
+                             '(default: ./core/models_weights/extractor_model/senet50_ft_pytorch.pth)')
     parser.add_argument('-ef', '--extractFromFolder', action='store_true', help='Extract from folder (default: False)')
     parser.add_argument('-ev', '--extractFromVideo', action='store_true', help='Extract from video (default: False)')
-    parser.add_argument('-ep', '--extractPath', help='Path for extraction (default: False)')
+    parser.add_argument('-n', '--numberOfImages', type=int, default=10, help='NUmber of images (default: 10)')
+    parser.add_argument('-ep', '--extractPath', help='Path to images from which extract features (default: False)')
+    parser.add_argument('-url', '--urlOrWebcamIdx', default=None,
+                        help='Url of streaming, path to a video or index of webcam (default: None)')
+    parser.add_argument('-f', '--featuresFilePath', help='Features file path')
+    # parser.add_argument('-clfp', '--classifierCheckpointPath', default='./classifier_ckt',
+    #                     help='Path to store/load classifier checkpoint (default: ./classifier_ckt)')
+    #
+    #
+    # # parser.add_argument('-', '--', action=, default=, help=' (default: )')
+    #
+    # parser.add_argument('-tc', '--trainClassifier', action='store_true', help='Train classifier (default: False)')
+    # parser.add_argument('-clfp', '--classifierPath', help='Path to classifier')
+    # parser.add_argument('-t', '--trainingMode', action='store_true', help='Training mode (default: False)')
+    #
+    # parser.add_argument('-l', '--labelsFilePath', help='Labels file path')
+    # parser.add_argument('-n', '--namesFilePath', help='Names file path')
+    # parser.add_argument('-w', '--webcamIdx', default=0, type=int, help='Activate the webcam at the specified index (default: 0)')
+    # parser.add_argument('-d', '--trainingImageFolder', help='Path to the root directory containing images for training.'
+    #                                                         ' The folder structure has to be: '
+    #                                                         'root/identity_one/images... '
+    #                                                         'All the identities have to have 10 images.')
+
+    parser.add_argument('-gpu', '--useGPU', action='store_true', help='Use GPU (default: False)')
+    parser.add_argument('-sv', '--showVideo', action='store_true', help='Show the video stream (default: false)')
     parser.add_argument('-v', '--verboseLevel', default=0, type=int, choices=[0, 1],
                         help='Set verbosity level (default: 0)')
-    parser.add_argument('-f', '--featuresFilePath', help='Features file path')
-    parser.add_argument('-l', '--labelsFilePath', help='Labels file path')
-    parser.add_argument('-n', '--namesFilePath', help='Names file path')
-    parser.add_argument('-w', '--webcamIdx', default=0, type=int, help='Activate the webcam at the specified index (default: 0)')
-    parser.add_argument('-url', '--videoUrl', default=None, help='Url of streaming or path to a video (default: None)')
-    parser.add_argument('-sv', '--showVideo', action='store_true', help='Show the video stream (default: false)')
-    parser.add_argument('-d', '--trainingImageFolder', help='Path to the root directory containing images for training.'
-                                                            ' The folder structure has to be: '
-                                                            'root/identity_one/images... '
-                                                            'All the identities have to have 10 images.')
     return parser.parse_args()
 
 

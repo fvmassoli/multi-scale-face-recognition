@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from joblib import dump, load
+from time import strftime, gmtime
 
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -8,16 +9,15 @@ from sklearn.metrics import confusion_matrix, classification_report
 
 
 class ClassifierManager(object):
-    def __init__(self, features_file, labels_file, train_classifier, classifier_path, verbose_level):
-        self.verbose_level = verbose_level
+    def __init__(self, features_file, classifier_path, verbose_level):
+        self._verbose_level = verbose_level
         self._features_file = features_file
-        self._labels_file = labels_file
-        self._classifier = self._init_classifier(train_classifier, classifier_path)
+        self._classifier_path = classifier_path
 
     def _open_files(self):
         x_train = np.loadtxt(self._features_file, dtype=np.float)
         y_train = np.loadtxt(self._labels_file, dtype=np.float)
-        if self.verbose_level > 0:
+        if self._verbose_level > 0:
             print("Features shape: {}\nLabels shape: {}".format(x_train.shape, y_train.shape))
         if len(x_train.shape)==0 | len(y_train.shape)==0 | x_train.shape[0]!=y_train.shape[0]:
             raise IOError('Can\'t use files to fit the classifier')
@@ -38,56 +38,51 @@ class ClassifierManager(object):
         x = np.asarray(x)
         return x, y
 
-    def train(self, train_classifier, classifier_path):
-        if not train_classifier:
-            return load(classifier_path)
-        else:
-            x_train, y_train = self._open_files()
-            if self._train_with_centroids:
-                x_train, y_train = self._get_mean_descriptors(x_train, y_train)
-            # save 20% of data for performance evaluation
-            X_train, X_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.1)
+    def train(self):
+        x_train, y_train = self._open_files()
+        if self._train_with_centroids:
+            x_train, y_train = self._get_mean_descriptors(x_train, y_train)
+        # save 20% of data for performance evaluation
+        X_train, X_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.1)
 
-            param = [
-                {
-                    "kernel": ["linear"],
-                    "C": [1, 10, 100, 1000]
-                },
-                {
-                    "kernel": ["rbf"],
-                    "C": [1, 10, 100, 1000],
-                    "gamma": [1e-2, 1e-3, 1e-4, 1e-5]
-                }
-            ]
+        param = [
+            {
+                "kernel": ["linear"],
+                "C": [1, 10, 100, 1000]
+            },
+            {
+                "kernel": ["rbf"],
+                "C": [1, 10, 100, 1000],
+                "gamma": [1e-2, 1e-3, 1e-4, 1e-5]
+            }
+        ]
 
-            # request probability estimation
-            svm = SVC(probability=True)
+        # request probability estimation
+        svm = SVC(probability=True)
 
-            # 10-fold cross validation
-            clf = GridSearchCV(svm, param, cv=10, n_jobs=-1, verbose=3)
+        # 10-fold cross validation
+        clf = GridSearchCV(svm, param, cv=10, n_jobs=-1, verbose=3)
 
-            clf.fit(X_train, y_train)
+        clf.fit(X_train, y_train)
 
-            if os.path.exists(classifier_path):
-                dump(clf.best_estimator_, classifier_path)
-            else:
-                print("Cannot save trained svm model to {0}.".format(classifier_path))
+        output_path = os.path.join(self._classifier_path, 'model_'+strftime("%Y-%m-%d_%H:%M:%S", gmtime()))
+        dump(clf.best_estimator_, output_path)
+        print('Classifier saved at: {}'.format(output_path))
 
-            print("\nBest parameters set:")
+        y_predict = clf.predict(X_test)
+
+        labels = sorted(list(set(self.y_train)))
+
+        if self._verbose_level > 0:
+            print("="*60)
+            print("Best parameters set:")
             print(clf.best_params_)
-
-            y_predict = clf.predict(X_test)
-
-            labels = sorted(list(set(self.y_train)))
             print("\nConfusion matrix:")
             print("Labels: {0}\n".format(",".join(labels)))
             print(confusion_matrix(y_test, y_predict, labels=labels))
-
             print("\nClassification report:")
-
             print(classification_report(y_test, y_predict))
-
-            return clf.best_estimator_
+            print("=" * 60)
 
     def classify_faces(self, descriptors):
         person_ids = []
